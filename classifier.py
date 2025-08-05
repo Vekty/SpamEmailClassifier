@@ -1,4 +1,3 @@
-from matplotlib import pyplot as plt
 import pandas as pd
 import numpy as np
 import scipy as sp
@@ -10,6 +9,7 @@ from email import policy
 from email.message import EmailMessage
 from sklearn.model_selection import train_test_split
 from collections import Counter
+from urlextract import URLExtract
 
 training_data_path='/home/victor/Documents/SpamClassifier/training_data'
 training_spam_path=os.path.join(training_data_path,'spam')
@@ -26,12 +26,24 @@ def html_to_string(mail):
     content = BeautifulSoup(mail.get_content(), 'html.parser')
     return content.get_text().strip()
 
-class WordCounter:
+class EmailToWordCounter:
     def __init__(self):
         self.counter=Counter()
+        self.extractor=URLExtract()
+        self.count=[]
     def clean_and_count(self,X):
-        pass
-
+        for x in X:
+            content=x.get_content().strip()
+            if(x.get_content_type()=='text/html'):
+                content=html_to_string(x)
+            if self.extractor.has_urls(content):    #any urls will be transformed to the string 'URL'
+                urls = set(self.extractor.find_urls(content))
+                for url in urls:
+                    content=content.replace(url,'URL')
+            content=re.sub(r'\d+(?:\.\d*)?(?:[eE][+-]?\d+)?', 'NUMBER', content) #any numbers will be transformed to the string 'NUMBER'
+            content=re.sub('[\W_]+', ' ', content, flags=re.M) #remove punctuation
+            self.count+=Counter(content.split())
+        return self.count
 def main():
   ham_names = [name for name in sorted(os.listdir(training_ham_path))]   #list of file names
   spam_names = [name for name in sorted(os.listdir(training_spam_path))]
@@ -43,6 +55,8 @@ def main():
   y = np.array([0] * len(ham_emails) + [1] * len(spam_emails))
 
   X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2,random_state=42)
-
+  X_train_copy=X_train.copy()
+  emwc=EmailToWordCounter()
+  print(emwc.clean_and_count(X_train_copy))
 if __name__=='__main__':
     main()
