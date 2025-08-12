@@ -1,6 +1,7 @@
 import numpy as np
 import os
 import re
+import copy
 from bs4 import BeautifulSoup
 from email import parser
 from email import policy
@@ -9,6 +10,9 @@ from sklearn.model_selection import train_test_split
 from collections import Counter
 from urlextract import URLExtract
 from sklearn.base import BaseEstimator,TransformerMixin
+from scipy.sparse import csr_matrix
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
 
 training_data_path='/home/victor/Documents/SpamClassifier/training_data'
 training_spam_path=os.path.join(training_data_path,'spam')
@@ -61,11 +65,26 @@ class EmailToWordCounter(BaseEstimator,TransformerMixin):
                     self.count.append(Counter(content.split()))
         return np.array(self.count)
 
-class CountAttributeAdder(BaseEstimator,TransformerMixin):
+class AttributeAdder(BaseEstimator,TransformerMixin):
+        def __init__(self):
+            self.word_list=[]
+            self.vocabulary_={}
         def fit(self,X,y=None):
+            for x in X:
+                self.word_list = self.word_list + list(x.keys())
+            self.word_list = sorted(set(self.word_list))
+            self.vocabulary_= {word: index + 1 for index, word in enumerate(self.word_list)}
             return self
         def transform(self,X):
-            pass
+            data = []
+            rows = []
+            cols = []
+            for row, x in enumerate(X):
+                for word, count in x.items():
+                    rows.append(row)
+                    data.append(count)
+                    cols.append(self.vocabulary_.get(word))
+            return csr_matrix((data, (rows, cols)), shape=(len(X), len(self.word_list) + 1))
 def main():
   ham_names = [name for name in sorted(os.listdir(training_ham_path))]   #list of file names
   spam_names = [name for name in sorted(os.listdir(training_spam_path))]
@@ -77,7 +96,15 @@ def main():
   y = np.array([0] * len(ham_emails) + [1] * len(spam_emails))
 
   X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2,random_state=42)
-  X_train_copy=X_train.copy()
+  X_train_copy=copy.deepcopy(X_train)
 
+  mail_pipeline=Pipeline([('EmailTransformer',EmailToWordCounter()),('AttributeAdder',AttributeAdder())])
+  X_train_copy=mail_pipeline.fit_transform(X_train_copy)
+
+  model=LogisticRegression()
+  model.fit(X_train_copy,y_train)
+  predictions=model.predict(X_train_copy)
+
+  print(predictions)
 if __name__=='__main__':
     main()
