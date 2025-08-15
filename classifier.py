@@ -13,6 +13,8 @@ from sklearn.base import BaseEstimator,TransformerMixin
 from scipy.sparse import csr_matrix
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from nltk import PorterStemmer
 
 training_data_path='/home/victor/Documents/SpamClassifier/training_data'
 training_spam_path=os.path.join(training_data_path,'spam')
@@ -50,6 +52,7 @@ class EmailToWordCounter(BaseEstimator,TransformerMixin):
     def __init__(self):
         self.extractor=URLExtract()
         self.count=[]
+        self.stemmer=PorterStemmer()
     def fit(self,X,y=None):
         return self
     def transform(self,X):
@@ -62,7 +65,13 @@ class EmailToWordCounter(BaseEstimator,TransformerMixin):
                             content=content.replace(url,'URL')
                     content=re.sub(r'\d+(?:\.\d*)?(?:[eE][+-]?\d+)?', 'NUMBER', content) #any numbers will be transformed to the string 'NUMBER'
                     content=re.sub('[\W_]+', ' ', content, flags=re.M) #remove punctuation
-                    self.count.append(Counter(content.split()))
+                    word_counts=Counter(content.split())
+                    stemmed_word_counts=Counter()
+                    for word,count in word_counts.items():
+                        stemmed_word=self.stemmer.stem(word)        #stemming for scaling
+                        stemmed_word_counts[stemmed_word]+=count
+                    word_counts=stemmed_word_counts
+                    self.count.append(word_counts)
         return np.array(self.count)
 
 class AttributeAdder(BaseEstimator,TransformerMixin):
@@ -85,6 +94,7 @@ class AttributeAdder(BaseEstimator,TransformerMixin):
                     data.append(count)
                     cols.append(self.vocabulary_.get(word))
             return csr_matrix((data, (rows, cols)), shape=(len(X), len(self.word_list) + 1))
+
 def main():
   ham_names = [name for name in sorted(os.listdir(training_ham_path))]   #list of file names
   spam_names = [name for name in sorted(os.listdir(training_spam_path))]
@@ -97,14 +107,14 @@ def main():
 
   X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2,random_state=42)
   X_train_copy=copy.deepcopy(X_train)
-
   mail_pipeline=Pipeline([('EmailTransformer',EmailToWordCounter()),('AttributeAdder',AttributeAdder())])
   X_train_copy=mail_pipeline.fit_transform(X_train_copy)
+  y_train=y_train[:len(y_train)-1]
 
-  model=LogisticRegression()
-  model.fit(X_train_copy,y_train)
-  predictions=model.predict(X_train_copy)
+  model=LogisticRegression(max_iter=2000,random_state=42)
 
-  print(predictions)
+  score = cross_val_score(model, X_train_copy, y_train, cv=3, verbose=3)
+  print(score.mean())
+
 if __name__=='__main__':
     main()
