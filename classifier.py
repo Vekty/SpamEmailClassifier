@@ -16,6 +16,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from nltk import PorterStemmer
 from sklearn.metrics import recall_score,precision_score
+from sklearn.pipeline import FeatureUnion
 from sklearn.model_selection import GridSearchCV
 
 DOWNLOAD_ROOT = "http://spamassassin.apache.org/old/publiccorpus/"
@@ -95,7 +96,8 @@ class EmailToWordCounter(BaseEstimator,TransformerMixin):
                         stemmed_word_counts[stemmed_word]+=count
                     word_counts=stemmed_word_counts
                     self.count.append(word_counts)
-
+                else:
+                    self.count.append(Counter())
         return np.array(self.count)
 
 class AttributeAdder(BaseEstimator,TransformerMixin):
@@ -121,6 +123,25 @@ class AttributeAdder(BaseEstimator,TransformerMixin):
                     cols.append(self.vocabulary_.get(word,0))
             return csr_matrix((data, (rows, cols)), shape=(len(X), self.vocabulary_size + 1))
 
+class StructureAndUppercaseAdder(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        extra_features = []
+        for email in X:
+            if email is None:
+                extra_features.append([0, 0, 0])
+                continue
+
+            num_parts = sum(1 for _ in email.walk())
+            has_html = any(part.get_content_type() == "text/html" for part in email.walk())
+            text = email_to_text(email)
+            num_upper = sum(1 for c in text if c.isupper()) if text else 0 # number of uppercase
+            extra_features.append([num_parts, int(has_html), num_upper])
+
+        return np.array(extra_features)
+
 def main():
   ham_names = [name for name in sorted(os.listdir(HAM_DIR))]   #list of file names
   spam_names = [name for name in sorted(os.listdir(SPAM_DIR))]
@@ -133,20 +154,23 @@ def main():
 
   X_train,X_test,y_train,y_test=train_test_split(X,y,test_size=0.2,random_state=42)
 
-  mail_pipeline=Pipeline([('EmailTransformer',EmailToWordCounter()),('AttributeAdder',AttributeAdder())])
+  mail_pipeline = FeatureUnion([
+      ("word_features", Pipeline([
+          ("EmailTransformer", EmailToWordCounter()),
+          ("AttributeAdder", AttributeAdder())
+      ])),
+      ("structure_features", StructureAndUppercaseAdder())
+  ])
 
   X_train=mail_pipeline.fit_transform(X_train)
   X_test=mail_pipeline.transform(X_test)
-  y_train=np.delete(y_train,1047) #deleted element at index 1047 because for some reason the 1047th element in X is
-                                      # of type None which caused performance to severely drop
 
-
-  model=LogisticRegression(max_iter=2000,random_state=42)
+  model=LogisticRegression()
   model.fit(X_train,y_train)
   y_hat=model.predict(X_test)
 
-  print(recall_score(y_test,y_hat)) #97% recall
-  print(precision_score(y_test,y_hat)) #95% precision
+  print(recall_score(y_test,y_hat)) #98% recall
+  print(precision_score(y_test,y_hat)) #98% precision
 
 if __name__=='__main__':
     main()
