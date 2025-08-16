@@ -135,7 +135,7 @@ class StructureAndUppercaseAdder(BaseEstimator, TransformerMixin):
                 continue
 
             num_parts = sum(1 for _ in email.walk())
-            has_html = any(part.get_content_type() == "text/html" for part in email.walk())
+            has_html = any(part.get_content_type().lower() == "text/html" for part in email.walk())
             text = email_to_text(email)
             num_upper = sum(1 for c in text if c.isupper()) if text else 0 # number of uppercase
             extra_features.append([num_parts, int(has_html), num_upper])
@@ -165,7 +165,7 @@ def main():
   X_train=mail_pipeline.fit_transform(X_train)
   X_test=mail_pipeline.transform(X_test)
 
-  model=LogisticRegression()
+  model=LogisticRegression(max_iter=2000,random_state=42)
   model.fit(X_train,y_train)
   y_hat=model.predict(X_test)
 
