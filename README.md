@@ -65,5 +65,6 @@ The main goal was to achieve **high recall**, since it is safer to incorrectly m
 
 **Future improvements could include:**  
 - Analyzing sender names (spammers often use odd formats)  
-- Exploring **n-grams** for context  
+- Exploring **n-grams** for context
+- Default hyperparameters were sufficient — no fine-tuning was needed
 - Comparing with **Naive Bayes, SVM, or deep learning models**  
