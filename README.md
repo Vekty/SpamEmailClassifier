@@ -3,4 +3,5 @@ The dataset used for this project was taken from https://spamassassin.apache.org
 I used the Logistic Regression model ( scikit-learn implementation) and after I realised it produced excellent results I didn't bother testing any other model (with K-fold cross-validation) since it went beyond the scope of what I wanted to do (and also because at the moment of making this it was the only classification algorithm I fully understood).
 
 The dataset contains 2500 ham emails and 500 spam emails and it was split 80-20 (80% training_set 20% test_set). 
-<img width="1920" height="1080" alt="Screenshot_20250820_203617" src="https://github.com/user-attachments/assets/a559d63f-133b-431a-a88d-840693429713" />
+<img width="1327" height="549" alt="PHOTO1" src="https://github.com/user-attachments/assets/00e43b62-aa01-4a51-becf-ab943c2078d1" />
+
