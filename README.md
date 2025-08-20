@@ -38,7 +38,7 @@ The main goal was to achieve **high recall**, since it is safer to incorrectly m
 
 **Pipelines**  
 - Implemented custom transformers (`EmailToWordCounter`, `AttributeAdder`)  
-- Used scikit-learn’s `Pipeline` to automate preprocessing + modeling  
+- Used scikit-learn’s `FeatureUnion` to automate preprocessing + modeling  
 
 ---
 
